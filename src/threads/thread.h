@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h"
 #include "fixed_point.h"
 
 /* States in a thread's life cycle. */
@@ -101,6 +102,9 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    struct thread *parent;              /* Parent. */
+    struct semaphore sema;       /* Semaphore. */
   };
 
 /* If false (default), use round-robin scheduler.

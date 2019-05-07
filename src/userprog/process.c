@@ -23,7 +23,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-void setup_argument (const char **argv, int argc, void **esp);
+void setup_argument (char **argv, int argc, void **esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -32,7 +32,7 @@ void setup_argument (const char **argv, int argc, void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *name_tmp;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -40,14 +40,15 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  if (file_name == NULL) 
-  {
-    return TID_ERROR;
-  }
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  name_tmp = palloc_get_page (0);
+  if (name_tmp == NULL)
+    return TID_ERROR;
+  strlcpy (name_tmp, file_name, PGSIZE);
+
   char *save_ptr;
-  char *name = strtok_r(file_name, " ", &save_ptr);
+  char *name = strtok_r(name_tmp, " ", &save_ptr);
 
 
   /* Create a new thread to execute FILE_NAME. */
@@ -107,7 +108,7 @@ start_process (void *file_name_)
 
 /* Put all arguments and their address to the stack. */
 
-void setup_argument (const char **argv, int argc, void **esp)  
+void setup_argument (char **argv, int argc, void **esp)  
 {
   void *argv_address[argc];
   int len, i;
@@ -139,7 +140,7 @@ void setup_argument (const char **argv, int argc, void **esp)
   *esp -= 4;
   *((uint32_t *) *esp) = 0;
 
-  hex_dump((uintptr_t)*esp, *esp, sizeof(char) * 8, true);
+  // hex_dump((uintptr_t)*esp, *esp, sizeof(char) * 64, true);
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -154,6 +155,10 @@ void setup_argument (const char **argv, int argc, void **esp)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  /*while (true) {
+    thread_yield ();
+  }*/
+  sema_down(&thread_current()->sema);
   return -1;
 }
 

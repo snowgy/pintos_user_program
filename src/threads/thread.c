@@ -198,6 +198,10 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  t->parent = thread_current ();
+  // list_insert (&thread_current ()->children, t);
+  
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -291,6 +295,7 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
+  sema_up(&thread_current()->parent->sema);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -463,6 +468,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->sema.value = 0;
+  list_init (&t->sema.waiters);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

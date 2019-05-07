@@ -34,7 +34,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy, *name_tmp;
   tid_t tid;
-
+  // printf ("---exe---\n");
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -50,6 +50,8 @@ process_execute (const char *file_name)
   char *save_ptr;
   char *name = strtok_r(name_tmp, " ", &save_ptr);
 
+  if (name == NULL)
+    return TID_ERROR;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
@@ -87,8 +89,8 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
 
+  success = load (file_name, &if_.eip, &if_.esp);
   if (success)
     setup_argument (argv, argc, &if_.esp);
   /* If load failed, quit. */
@@ -158,6 +160,15 @@ process_wait (tid_t child_tid UNUSED)
   /*while (true) {
     thread_yield ();
   }*/
+  struct thread *child = thread_find (child_tid);
+  struct thread *cur = thread_current ();
+
+  if (child == NULL)
+    return -2;
+  if (child->parent != cur)
+    return -3;
+  
+  //printf ("---begin wait---\n");
   sema_down(&thread_current()->sema);
   return -1;
 }

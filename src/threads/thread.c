@@ -181,6 +181,7 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  // printf("---done---\n");
   tid = t->tid = allocate_tid ();
 
   /* Stack frame for kernel_thread(). */
@@ -284,6 +285,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  //printf ("---exit---\n");
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -296,6 +298,7 @@ thread_exit (void)
   intr_disable ();
   list_remove (&thread_current()->allelem);
   sema_up(&thread_current()->parent->sema);
+  //printf ("---end exit---\n");
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -317,6 +320,21 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
+}
+
+/* Finds thread by its id. */
+struct thread *
+thread_find (tid_t tid)
+{
+  struct list_elem *e;
+  struct thread *t;
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      t = list_entry (e, struct thread, allelem);
+      if (t->tid == tid) return t;
+    }
+  return NULL;
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -468,8 +486,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+#ifdef USERPROG
   t->sema.value = 0;
-  list_init (&t->sema.waiters);
+  list_init (&t->sema.waiters);                                          
+  list_init (&t->children);                        
+  t->exited = false;                        
+  t->waited = false;                                      
+#endif
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

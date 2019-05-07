@@ -98,13 +98,18 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct thread *parent;              /* Parent. */
+    struct semaphore sema;              /* Semaphore. */
+    struct list children;               /* Children of this thread. */
+    struct list_elem childelem;         /* List element for children list. */
+    bool exited;                        /* Whether it has exited*/
+    bool waited;                        /* Whether it has waited for some child. */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    struct thread *parent;              /* Parent. */
-    struct semaphore sema;       /* Semaphore. */
+    
   };
 
 /* If false (default), use round-robin scheduler.
@@ -130,6 +135,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+
+struct thread *thread_find (tid_t child_tid);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

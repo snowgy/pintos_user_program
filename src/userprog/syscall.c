@@ -8,6 +8,7 @@
 #include "devices/shutdown.h"
 #include "filesys/filesys.h"
 #include "process.h"
+#include "pagedir.h"
 #ifndef ARGLEN
 #define ARGLEN 5
 #endif
@@ -16,6 +17,7 @@ typedef int pid_t;
 
 static void syscall_handler (struct intr_frame *);
 static void is_valid_ptr (const void *ptr);
+static void is_valid_ptr_single (const void *ptr);
 void halt (void) NO_RETURN;
 void exit (int status) NO_RETURN;
 pid_t exec (const char *file);
@@ -29,6 +31,7 @@ int write (int fd, const void *buffer, unsigned length);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+bool is_in_valid_page (const void * ptr);
 
 struct lock filesys_lock;
 
@@ -47,12 +50,14 @@ syscall_handler (struct intr_frame *f UNUSED)
   // thread_exit ();
   //first check if f->esp is a valid pointer)
   is_valid_ptr (f->esp);
+  // printf ("%x\n", f->esp);
   //cast f->esp into an int*, then dereference it for the SYS_CODE
 
   int *p = f->esp;
-  int argv[ARGLEN];
-
-  switch(*(int*)f->esp)
+  // printf ("%x\n", *p);
+  int argv[ARGLEN];  
+  // printf ("hhh\n");
+  switch(*p)
   {
     case SYS_HALT:
     {
@@ -84,28 +89,31 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
     {
       read_args (2, argv, f);
-      create (argv[0], argv[1]);
+      f->eax = create (argv[0], argv[1]);
       break;
     }
     case SYS_REMOVE:
     {
       read_args (1, argv, f);
-      remove (argv[0]);
+      f->eax = remove (argv[0]);
       break;
     }
     case SYS_OPEN:
     {
       read_args (1, argv, f);
+      f->eax = open (argv[0]);
       break;
     }    
     case SYS_FILESIZE:
     {
       read_args (1, argv, f);
+      f->eax = filesize (argv[0]);
       break;
     }
     case SYS_READ:
     {
       read_args (3, argv, f);
+      f->eax = read (argv[0], argv[1], argv[2]);
       break;
     }
     case SYS_WRITE:
@@ -143,10 +151,12 @@ read_args (int n, int *argv, struct intr_frame *f)
   /*if (*(int*)f->esp == SYS_WAIT) {
     hex_dump((uintptr_t)f->esp, f->esp, sizeof(char)*16, true);
   }*/
+  // printf ("---Sum: %d---\n", n);
   for (i = 0; i < n; ++i) 
   {
     ptr = ((int *)f->esp + 1 + i);
     is_valid_ptr ((void *)ptr);
+    // printf ("---%p---\n", ptr);
     argv[i] = *ptr;
     /*if (*(int*)f->esp == SYS_WAIT)
       printf ("argv[%d]---%d---\n", i, argv[i]);*/
@@ -156,10 +166,26 @@ read_args (int n, int *argv, struct intr_frame *f)
 static void 
 is_valid_ptr (const void *ptr)
 {
+  // printf ("---address: %p---\n", ptr);
+  is_valid_ptr_single ((int *)ptr);
+  for (int i = 0; i < 4; ++i)
+    is_valid_ptr_single ((char *)ptr + i);
+}
+
+static void 
+is_valid_ptr_single (const void *ptr)
+{
+  // printf ("---address: %p---\n", ptr);
   if (ptr == NULL || !is_user_vaddr (ptr) || !is_user_vaddr_above (ptr))
   {
     exit (-1);
   } 
+  // printf ("---Before ID: %d---\n", thread_current ()->tid);
+  void *ptr_check = pagedir_get_page (thread_current ()->pagedir, ptr);
+  if (!ptr_check)
+  {
+    exit (-1);
+  }
 }
 
 void 
@@ -178,6 +204,9 @@ exit (int status)
 pid_t 
 exec (const char *file)
 {
+  if (!file)
+    exit (-1);
+  is_in_valid_page (file);
   //printf ("---exe id: %d---\n", thread_current ()->tid);
   pid_t pid = -1;
   lock_acquire (&filesys_lock);
@@ -202,13 +231,27 @@ wait (pid_t child_tid)
 bool 
 create (const char *file, unsigned initial_size)
 {
+  if (!file)
+    exit (-1);
+  is_in_valid_page (file);
   bool flag;
   lock_acquire (&filesys_lock);
+  // printf ("begin create\n");
   flag = filesys_create (file, initial_size);
   //printf ("---1 Done---\n");
   lock_release (&filesys_lock);
   //printf ("---2 Done---\n");
   return flag;
+}
+
+bool
+is_in_valid_page (const void * ptr)
+{
+  void *ptr_check = pagedir_get_page (thread_current ()->pagedir, ptr);
+  if (!ptr_check)
+  {
+    exit (-1);
+  }
 }
 
 bool 
@@ -222,17 +265,41 @@ remove (const char *file)
 }
 
 int 
-open (const char *file);
+open (const char *file)
+{
+  if (!file)
+    exit (-1);
+  is_in_valid_page (file);
+  int flag;
+  lock_acquire (&filesys_lock);
+  // printf ("begin create\n");
+  flag = filesys_open (file);
+  //printf ("---1 Done---\n");
+  lock_release (&filesys_lock);
+  //printf ("---2 Done---\n");
+  return flag;
+}
 
 int 
-filesize (int fd);
+filesize (int fd)
+{
+  return -1;
+}
 
 int 
-read (int fd, void *buffer, unsigned length);
+read (int fd, void *buffer, unsigned length)
+{
+  if (!buffer)
+    exit (-1);
+  is_in_valid_page (buffer);
+}
 
 int 
 write (int fd, const void* buffer, unsigned size)
 {
+  if (!buffer)
+    exit (-1);
+  is_in_valid_page (buffer);
   if (fd == STDOUT_FILENO)
   {
     putbuf (buffer, size);

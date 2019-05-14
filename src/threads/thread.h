@@ -95,16 +95,20 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-#ifdef USERPROG
+  #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct thread *parent;              /* Parent. */
     struct semaphore sema;              /* Semaphore. */
     struct list children;               /* Children of this thread. */
+
+    struct list file_list;              /* file discriptor list of this process */
+    int fd;                             /* file discriptor */
+    int file_num;                       /* the number of opened file */
     struct list_elem childelem;         /* List element for children list. */
     bool exited;                        /* Whether it has exited*/
     bool waited;                        /* Whether it has waited for some child. */
-#endif
+  #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

@@ -9,6 +9,7 @@
 #include "filesys/filesys.h"
 #include "process.h"
 #include "pagedir.h"
+#include "filesys/file.h"
 #ifndef ARGLEN
 #define ARGLEN 5
 #endif
@@ -34,7 +35,6 @@ void close (int fd);
 bool is_in_valid_page (const void * ptr);
 
 struct lock filesys_lock;
-
 
 void
 syscall_init (void) 
@@ -124,7 +124,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       // unsigned size = *((unsigned*)f->esp + 3);
       f->eax = write (argv[0], argv[1], argv[2]);
       break;
-    } 
+    }
     case SYS_SEEK:
     {
       read_args (2, argv, f);
@@ -138,6 +138,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CLOSE:
     {
       read_args (1, argv, f);
+      close (argv[0]);
       break;
     }
   }
@@ -270,20 +271,32 @@ open (const char *file)
   if (!file)
     exit (-1);
   is_in_valid_page (file);
-  int flag;
   lock_acquire (&filesys_lock);
-  // printf ("begin create\n");
-  flag = filesys_open (file);
-  //printf ("---1 Done---\n");
+  struct file *f = filesys_open (file);
+  if (!f)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }
+  int fd = add_file (f);
   lock_release (&filesys_lock);
-  //printf ("---2 Done---\n");
-  return flag;
+  // printf ("released\n");
+  return fd;
 }
 
 int 
 filesize (int fd)
 {
-  return -1;
+  lock_acquire (&filesys_lock);
+  struct file* f = get_file (fd);
+  if (!f)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }
+  int size = file_length (f);
+  lock_release (&filesys_lock);
+  return size;
 }
 
 int 
@@ -291,7 +304,24 @@ read (int fd, void *buffer, unsigned length)
 {
   if (!buffer)
     exit (-1);
+  is_valid_ptr (buffer);
   is_in_valid_page (buffer);
+  char *buffer_cpy = (char*) buffer; 
+  is_in_valid_page (buffer);
+  if (fd == STDOUT_FILENO)
+  {
+    return length;
+  }
+  lock_acquire (&filesys_lock);
+  struct file *f = get_file(fd);
+  if (!f)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }
+  int size = file_read (f, buffer, length);
+  lock_release (&filesys_lock);
+  return size;
 }
 
 int 
@@ -299,12 +329,27 @@ write (int fd, const void* buffer, unsigned size)
 {
   if (!buffer)
     exit (-1);
+  is_valid_ptr (buffer);
   is_in_valid_page (buffer);
   if (fd == STDOUT_FILENO)
   {
     putbuf (buffer, size);
-    return;
+    return size;
   }
+  if (fd == STDIN_FILENO)
+  {
+    return size;
+  }
+  lock_acquire (&filesys_lock);
+  struct file *f = get_file (fd);
+  if (!f)
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  int length = file_write(f, buffer, size);
+  lock_release (&filesys_lock);
+  return length;
 }
 
 void 
@@ -314,6 +359,15 @@ unsigned
 tell (int fd);
 
 void 
-close (int fd);
+close (int fd) {
+  lock_acquire (&filesys_lock);
+  bool res = close_file (fd);
+  if (!res)
+  {
+    lock_release (&filesys_lock);
+    exit(-1);
+  }
+  lock_release (&filesys_lock);
+}
 
 

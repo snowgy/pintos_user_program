@@ -25,6 +25,74 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 void setup_argument (char **argv, int argc, void **esp);
 
+
+struct file_control_block
+{
+  struct file *process_file;
+  int fd;
+  struct list_elem file_elem;
+};
+
+/* add a new file to the process list */
+int 
+add_file (struct file *f)
+{
+  struct file_control_block * fc = palloc_get_page (0);
+  if (fc == NULL)
+    return -1;
+  fc->process_file = f;
+  struct thread *cur_thread = thread_current();
+  fc->fd = cur_thread->fd++;
+  list_push_back (&cur_thread->file_list, &fc->file_elem);
+  thread_current()->file_num++;
+  return fc->fd;
+}
+
+/* get a file from the process list */
+struct file * 
+get_file (int fd)
+{
+  if (fd > thread_current()->fd || fd < 0)
+    return NULL;
+  struct list_elem *e;
+  struct list file_list = thread_current()->file_list;
+  for (e = list_begin (&file_list); e != list_end (&file_list);
+       e = list_next (e))
+       {
+         struct file_control_block *fc = list_entry (e, struct file_control_block, file_elem);
+         if (fd == fc->fd) {
+           return fc->process_file;
+         }
+       }
+  return NULL;
+}
+
+/* close the file or close all the file */
+bool
+close_file (int fd)
+{
+   if (fd > thread_current()->fd || fd < 0)
+    return false;
+  struct list_elem *e;
+  struct list file_list = thread_current()->file_list;
+  if (thread_current()->file_num == 0) 
+    return false;
+  for (e = list_begin (&file_list); e != list_end (&file_list);
+       e = list_next (e))
+       {
+         struct file_control_block *fc = list_entry (e, struct file_control_block, file_elem);
+         if (fd == fc->fd) {
+            file_close (fc->process_file);
+            list_remove (&fc->file_elem);
+            thread_current()->file_num--;
+            palloc_free_page (fc);
+            return true;
+         }
+       }
+  return false;
+}
+
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's

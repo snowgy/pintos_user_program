@@ -15,6 +15,7 @@
 #endif
 
 typedef int pid_t;
+int success_flag = 0;
 
 static void syscall_handler (struct intr_frame *);
 static void is_valid_ptr (const void *ptr);
@@ -83,7 +84,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       read_args (1, argv, f);
       //printf("---READ: %d---\n", argv[0]);
       //printf("---SYS: %d---\n", *(p + 1));
-      f->eax = wait (*(p + 1));
+      f->eax = wait (argv[0]);
       break;
     }
     case SYS_CREATE:
@@ -128,11 +129,13 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_SEEK:
     {
       read_args (2, argv, f);
+      seek(argv[0], argv[2]);
       break;
     }
     case SYS_TELL:
     {
       read_args (1, argv, f);
+      f->eax = tell (argv[0]);
       break;
     }
     case SYS_CLOSE:
@@ -198,34 +201,66 @@ halt ()
 void 
 exit (int status)
 {
-  printf ("%s: exit(%d)\n", thread_current ()->name, status);
+  // printf("---in exit---\n");
+  struct thread *cur = thread_current ();
+  printf ("%s: exit(%d)\n", cur->name, status);
+  struct thread *p = thread_find (cur->parentId);
+  //printf("---%s %d\n", cur->tid, cur->exit_status);
+  if (p != NULL)
+  {
+    // printf ("---%d is not null---\n", p->tid);
+    struct list_elem *e;
+    // int len = 0;
+    // // struct list_elem *e;
+    // for (e = list_begin (&p->children); e != list_end (&p->children); e = list_next (e))
+    // {
+    //   len++;
+    // }
+    // printf ("---the length of %d children is %d---\n", p->tid, len);
+    struct child_status *child;
+    for (e = list_begin (&p->children); e != list_tail (&p->children); e = list_next (e))
+    {
+      child = list_entry (e, struct child_status, childelem);
+      // printf ("---child %d---\n", child->tid);
+      if (child->tid == cur->tid)
+      {
+        lock_acquire (&cur->child_lock);
+        child->exited = true;
+        child->exit_status = status;
+        lock_release (&cur->child_lock);
+        // printf ("---%d: %d %d---\n", child->tid, child->exit_status, status);
+        break;
+      }
+    }
+  }
   thread_exit ();
 }
 
 pid_t 
 exec (const char *file)
 {
+  // printf("---in exec---\n");
   if (!file)
     exit (-1);
   is_in_valid_page (file);
   //printf ("---exe id: %d---\n", thread_current ()->tid);
   pid_t pid = -1;
   lock_acquire (&filesys_lock);
+  // printf ("------ load -------\n");
   pid = process_execute (file);
+  // printf ("------- finish : %d -----\n", pid);
   lock_release (&filesys_lock);
-  //printf ("---%d---\n", pid);
+  // printf ("---%d---\n", pid);
   return pid;
 }
 
 int 
 wait (pid_t child_tid)
 {
-  //printf ("---wait id: %d---\n", thread_current ()->tid);
+  // printf("---in wait---\n");
+  // printf ("---wait id: %d---\n", child_tid);
   int res = 0;
-  //printf("---start wait---\n");
   res = process_wait (child_tid);
-  //printf("---%d---\n", child_tid);
-  //printf("---end wait %d---\n", res);
   return res;
 }
 
@@ -250,9 +285,7 @@ is_in_valid_page (const void * ptr)
 {
   void *ptr_check = pagedir_get_page (thread_current ()->pagedir, ptr);
   if (!ptr_check)
-  {
     exit (-1);
-  }
 }
 
 bool 
@@ -313,7 +346,7 @@ read (int fd, void *buffer, unsigned length)
     return length;
   }
   lock_acquire (&filesys_lock);
-  struct file *f = get_file(fd);
+  struct file *f = get_file (fd);
   if (!f)
   {
     lock_release (&filesys_lock);
@@ -347,19 +380,42 @@ write (int fd, const void* buffer, unsigned size)
     lock_release(&filesys_lock);
     return -1;
   }
-  int length = file_write(f, buffer, size);
+  int length = file_write (f, buffer, size);
   lock_release (&filesys_lock);
   return length;
 }
 
 void 
-seek (int fd, unsigned position);
+seek (int fd, unsigned position) 
+{
+  lock_acquire (&filesys_lock);
+  struct File *file = get_file (fd);
+  if (!file) 
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }
+  file_seek (file, position);
+  lock_release (&filesys_lock);
+}
 
 unsigned 
-tell (int fd);
+tell (int fd) 
+{
+  lock_acquire (&filesys_lock);
+  struct File *file = get_file (fd);
+  if (!file)
+  {
+    lock_release (&filesys_lock);
+    return -1;
+  }
+  off_t size = file_tell (file);
+  return size;
+}
 
 void 
-close (int fd) {
+close (int fd) 
+{
   lock_acquire (&filesys_lock);
   bool res = close_file (fd);
   if (!res)

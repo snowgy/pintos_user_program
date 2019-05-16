@@ -182,7 +182,7 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
-  // printf("---done---\n");
+  // printf("---%d---\n", t->status);
   tid = t->tid = allocate_tid ();
 
   /* Stack frame for kernel_thread(). */
@@ -200,12 +200,14 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  t->parent = thread_current ();
-  // list_insert (&thread_current ()->children, t);
-  
+  t->parentId = thread_current ()->tid;
+  // printf("---123---\n");
+  // printf("---456---\n");
+  // printf("---%s %d---\n", t->name, t->status);
 
   /* Add to run queue. */
   thread_unblock (t);
+  // printf("---%s %d---\n", t->name, t->status);
 
   return tid;
 }
@@ -242,6 +244,7 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
+  // printf("---%s %d---\n", t->name, t->status);
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
@@ -292,14 +295,21 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+  // struct thread *t = thread_current ();
   list_remove (&thread_current()->allelem);
-  sema_up(&thread_current()->parent->sema);
-  //printf ("---end exit---\n");
+
+  struct thread *p = thread_find (thread_current ()->parentId);
+
+  if (p != NULL)
+  {
+    sema_up(&p->sema);
+  }
+  
+  // printf("---After exit, %d %d\n", t->tid, t->exit_status);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -335,6 +345,7 @@ thread_find (tid_t tid)
       t = list_entry (e, struct thread, allelem);
       if (t->tid == tid) return t;
     }
+  if (t->tid != tid) t = NULL;
   return NULL;
 }
 
@@ -483,6 +494,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
+  // printf("---%d---\n", t->status);
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
@@ -492,10 +504,9 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->sema.waiters);                                          
   list_init (&t->children); 
   list_init (&t->file_list);
+  lock_init (&t->child_lock);
   t->fd = 2;
-  t->file_num = 0;                       
-  t->exited = false;                        
-  t->waited = false;                                      
+  t->file_num = 0;                                                         
 #endif
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -98,22 +98,29 @@ struct thread
   #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct thread *parent;              /* Parent. */
+    tid_t parentId;                     /* Parent. */
     struct semaphore sema;              /* Semaphore. */
     struct list children;               /* Children of this thread. */
-
-    struct list file_list;              /* file discriptor list of this process */
-    int fd;                             /* file discriptor */
-    int file_num;                       /* the number of opened file */
-    struct list_elem childelem;         /* List element for children list. */
-    bool exited;                        /* Whether it has exited*/
-    bool waited;                        /* Whether it has waited for some child. */
+    struct list file_list;              /* File discriptor list of this process */
+    int fd;                             /* File discriptor */
+    int file_num;                       /* The number of opened file */
+    struct lock child_lock;             /* A lock to lock the child. */
   #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
     
+  };
+
+/* This is a struct to store the information of the status of a child of a process. */
+struct child_status
+  {
+    tid_t tid;                            /* Thread identifier. */
+    struct list_elem childelem;           /* List element for children list. */
+    bool exited;                          /* Whether it has exited*/
+    bool waited;                          /* Whether it has waited for some child. */
+    int exit_status;                      /* Status when it exits. */
   };
 
 /* If false (default), use round-robin scheduler.

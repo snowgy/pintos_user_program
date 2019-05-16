@@ -25,6 +25,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 void setup_argument (char **argv, int argc, void **esp);
 
+bool global_succcess = true;
 
 struct file_control_block
 {
@@ -120,11 +121,39 @@ process_execute (const char *file_name)
 
   if (name == NULL)
     return TID_ERROR;
-
+  
   /* Create a new thread to execute FILE_NAME. */
+  enum intr_level old_level = intr_disable ();
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  struct thread *cur = thread_current ();
+  intr_set_level (old_level);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  else 
+  {
+    struct child_status *child = malloc (sizeof (struct child_status));
+    if (child != NULL)
+    {
+      child->tid = tid;
+      child->exit_status = 0;
+      child->exited = false;
+      child->waited = false;
+      list_push_back (&cur->children, &child->childelem);
+      // printf ("---%d has been %d child---\n", tid, cur->tid);
+      // int len = 0;
+      // struct list_elem *e;
+      // for (e = list_begin (&cur->children); e != list_end (&cur->children); e = list_next (e))
+      // {
+      //   len++;
+      // }
+      // printf ("---the length of %d children is %d---\n", cur->tid, len);
+    }
+    
+  }
+  // process_wait (tid);
+  // struct thread *t = thread_find (tid);
+  // if (!global_succcess)
+  //   tid = -1;
   return tid;
 }
 
@@ -159,6 +188,8 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load (file_name, &if_.eip, &if_.esp);
+  global_succcess = success;
+  // printf ("succcess: %d\n", success);
   if (success)
     setup_argument (argv, argc, &if_.esp);
   /* If load failed, quit. */
@@ -228,24 +259,54 @@ process_wait (tid_t child_tid UNUSED)
   /*while (true) {
     thread_yield ();
   }*/
-  struct thread *child = thread_find (child_tid);
+  struct child_status *child = NULL;
+  struct list_elem *e;
   struct thread *cur = thread_current ();
+  int status = -1;
 
-  if (child == NULL)
-    return -2;
-  if (child->parent != cur)
-    return -3;
+  for (e = list_head (&cur->children); e != list_tail (&cur->children); e = list_next (e))
+  {
+    child = list_entry (e, struct child_status, childelem);
+    if (child != NULL && child->tid == child_tid)
+    {
+      // list_remove (e);
+      break;
+    }
+  }
+
+  if (child->tid != child_tid)
+    child = NULL;
+
+  // printf("---wait1 finished---\n");
+  // if (child->waited)
+  //   printf("---%d---", 1);
+  // if (child->exited)
+  //   printf("---%d---", 2);
+  if (child_tid == -1 || child == NULL || child->exited)
+    return -1;
   
-  //printf ("---begin wait---\n");
-  sema_down(&thread_current()->sema);
-  return -1;
+  // printf("---child id: %d---\n", child->tid);
+  sema_down (&thread_current()->sema);
+  // printf("---child id: %s---\n", child->name);
+  // printf("---%d: %d---\n", child->tid, child->exit_status);
+  if (child->waited || !child->exited)
+    return -1;
+  else 
+  {
+    // printf("---child id: %d---\n", child->tid);
+    list_remove (e);
+    status = child->exit_status;
+    child->waited = true;
+  }
+  return status;
 }
-
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  struct list_elem *e, *nxt;
+  struct thread *child, *p;
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
@@ -264,6 +325,14 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  // printf("---in pro child id: %d---\n", cur->tid);
+  for (e = list_begin (&cur->children); e != list_tail (&cur->children); e = nxt)
+  {
+    child = list_entry (e, struct child_status, childelem);
+    free (child);
+    nxt = list_next (e);
+    list_remove (e);
+  }
 }
 
 /* Sets up the CPU for running user code in the current

@@ -92,6 +92,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  lock_init (&filesys_lock);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -289,30 +290,48 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  //printf ("---exit---\n");
+  // printf ("--- thread exit ---\n");
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
 #endif
+// printf ("after\n");
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
   // struct thread *t = thread_current ();
-  list_remove (&thread_current()->allelem);
+  // printf ("5:thread exit\n");
+  struct thread *cur = thread_current ();
+  // printf ("5:%d\n", cur->tid);
+  list_remove (&cur->allelem);
+  // printf ("---current id: %d---\n", thread_current ()->tid);
 
-  struct thread *p = thread_find (thread_current ()->parentId);
+  struct thread *p = thread_find (cur->parentId);
+  int id = cur->tid;
 
   if (p != NULL)
   {
-    sema_up(&p->sema);
+    struct list_elem *e;
+    struct child_process *child;
+    for (e = list_begin (&p->children); e!= list_end (&p->children); e = list_next (e))
+    {
+      child = list_entry (e, struct child_process, childelem);
+      if (child->tid == id)
+        break;
+    }
+    if (child->tid != id)
+      child = NULL;
+    if (child != NULL && child->waited)
+      sema_up (&child->sema);
   }
   
   // printf("---After exit, %d %d\n", t->tid, t->exit_status);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
+  printf ("finish thread exit\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -500,13 +519,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 #ifdef USERPROG
-  t->sema.value = 0;
-  list_init (&t->sema.waiters);                                          
+  t->exec_sema.value = 0;
+  list_init (&t->exec_sema.waiters);
   list_init (&t->children); 
   list_init (&t->file_list);
   lock_init (&t->child_lock);
+  // t->filename = (char*) malloc (16 * (sizeof (char)));
   t->fd = 2;
-  t->file_num = 0;                                                         
+  t->file_num = 0;       
+  t->child_status = 0;                                                  
 #endif
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

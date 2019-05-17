@@ -8,6 +8,9 @@
 #include "fixed_point.h"
 
 /* States in a thread's life cycle. */
+
+struct lock filesys_lock; /* File system lock. */
+
 enum thread_status
   {
     THREAD_RUNNING,     /* Running thread. */
@@ -97,14 +100,16 @@ struct thread
 
   #ifdef USERPROG
     /* Owned by userprog/process.c. */
+    char *filename;                     /* executable file name */
     uint32_t *pagedir;                  /* Page directory. */
     tid_t parentId;                     /* Parent. */
-    struct semaphore sema;              /* Semaphore. */
+    struct semaphore exec_sema;         /* Exec semaphore. */
     struct list children;               /* Children of this thread. */
     struct list file_list;              /* File discriptor list of this process */
     int fd;                             /* File discriptor */
     int file_num;                       /* The number of opened file */
     struct lock child_lock;             /* A lock to lock the child. */
+    int child_status;                   /* Status that a child loads. */
   #endif
 
     /* Owned by thread.c. */
@@ -114,12 +119,13 @@ struct thread
   };
 
 /* This is a struct to store the information of the status of a child of a process. */
-struct child_status
+struct child_process
   {
     tid_t tid;                            /* Thread identifier. */
     struct list_elem childelem;           /* List element for children list. */
     bool exited;                          /* Whether it has exited*/
     bool waited;                          /* Whether it has waited for some child. */
+    struct semaphore sema;                /* Wait semaphore. */
     int exit_status;                      /* Status when it exits. */
   };
 

@@ -35,13 +35,10 @@ unsigned tell (int fd);
 void close (int fd);
 bool is_in_valid_page (const void * ptr);
 
-struct lock filesys_lock;
-
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init (&filesys_lock);
 }
 
 static void
@@ -68,19 +65,24 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
+      // printf("---exit---\n");
       //Implement syscall EXIT
       read_args (1, argv, f);
+      // thread_exit ();
       exit (argv[0]);
       break;
     }
     case SYS_EXEC:
     {
+      // printf("---exec---\n");
       read_args (1, argv, f);
+      is_valid_ptr ((void *) *(++p));
       f->eax = exec (argv[0]);
       break;
     }
     case SYS_WAIT:
     {
+      // printf("---wait---\n");
       read_args (1, argv, f);
       //printf("---READ: %d---\n", argv[0]);
       //printf("---SYS: %d---\n", *(p + 1));
@@ -89,36 +91,43 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:
     {
+      // printf("---create---\n");
       read_args (2, argv, f);
       f->eax = create (argv[0], argv[1]);
       break;
     }
     case SYS_REMOVE:
     {
+      // printf("---remove---\n");
       read_args (1, argv, f);
       f->eax = remove (argv[0]);
       break;
     }
     case SYS_OPEN:
     {
+      // printf("---open---\n");
       read_args (1, argv, f);
+      // printf("---open read done---\n");
       f->eax = open (argv[0]);
       break;
     }    
     case SYS_FILESIZE:
     {
+      // printf("---filesize---\n");
       read_args (1, argv, f);
       f->eax = filesize (argv[0]);
       break;
     }
     case SYS_READ:
     {
+      // printf("---read---\n");
       read_args (3, argv, f);
       f->eax = read (argv[0], argv[1], argv[2]);
       break;
     }
     case SYS_WRITE:
     {
+      // printf("---write---\n");
       read_args (3, argv, f);
       // int fd = *((int*)f->esp + 1);
       // void* buffer = (void*)(*((int*)f->esp + 2));
@@ -128,18 +137,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_SEEK:
     {
+      // printf("---seek---\n");
       read_args (2, argv, f);
-      seek(argv[0], argv[2]);
+      seek(argv[0], argv[1]);
       break;
     }
     case SYS_TELL:
     {
+      // printf("---tell---\n");
       read_args (1, argv, f);
       f->eax = tell (argv[0]);
       break;
     }
     case SYS_CLOSE:
     {
+      // printf("---close---\n");
       read_args (1, argv, f);
       close (argv[0]);
       break;
@@ -156,15 +168,18 @@ read_args (int n, int *argv, struct intr_frame *f)
     hex_dump((uintptr_t)f->esp, f->esp, sizeof(char)*16, true);
   }*/
   // printf ("---Sum: %d---\n", n);
+  //hex_dump((uintptr_t)f->esp, f->esp, sizeof(char)*48, true);
   for (i = 0; i < n; ++i) 
   {
     ptr = ((int *)f->esp + 1 + i);
+    // printf ("%s\n", *ptr);
     is_valid_ptr ((void *)ptr);
-    // printf ("---%p---\n", ptr);
+    // printf ("---%x---\n", *ptr);
     argv[i] = *ptr;
-    /*if (*(int*)f->esp == SYS_WAIT)
-      printf ("argv[%d]---%d---\n", i, argv[i]);*/
+    // if (*(int*)f->esp == SYS_WAIT)
+      //printf ("argv[%d]---%s---\n", i, argv[i]);
   }
+  // printf ("%d\n", n);
 }
 
 static void 
@@ -172,6 +187,7 @@ is_valid_ptr (const void *ptr)
 {
   // printf ("---address: %p---\n", ptr);
   is_valid_ptr_single ((int *)ptr);
+  // printf ("---the pointer is: %p\n", ptr);
   for (int i = 0; i < 4; ++i)
     is_valid_ptr_single ((char *)ptr + i);
 }
@@ -217,10 +233,10 @@ exit (int status)
     //   len++;
     // }
     // printf ("---the length of %d children is %d---\n", p->tid, len);
-    struct child_status *child;
+    struct child_process *child;
     for (e = list_begin (&p->children); e != list_tail (&p->children); e = list_next (e))
     {
-      child = list_entry (e, struct child_status, childelem);
+      child = list_entry (e, struct child_process, childelem);
       // printf ("---child %d---\n", child->tid);
       if (child->tid == cur->tid)
       {
@@ -233,6 +249,7 @@ exit (int status)
       }
     }
   }
+  
   thread_exit ();
 }
 
@@ -243,13 +260,13 @@ exec (const char *file)
   if (!file)
     exit (-1);
   is_in_valid_page (file);
-  //printf ("---exe id: %d---\n", thread_current ()->tid);
+  // printf ("---exe id: %d---\n", thread_current ()->tid);
   pid_t pid = -1;
-  lock_acquire (&filesys_lock);
+  // lock_acquire (&filesys_lock);
   // printf ("------ load -------\n");
   pid = process_execute (file);
   // printf ("------- finish : %d -----\n", pid);
-  lock_release (&filesys_lock);
+  // lock_release (&filesys_lock);
   // printf ("---%d---\n", pid);
   return pid;
 }
@@ -301,11 +318,18 @@ remove (const char *file)
 int 
 open (const char *file)
 {
+  // printf ("cnm\n");
   if (!file)
     exit (-1);
   is_in_valid_page (file);
   lock_acquire (&filesys_lock);
   struct file *f = filesys_open (file);
+  // printf ("%s, %s\n", file, thread_current()->name);
+  if (!strcmp (file, thread_current ()->name)){
+      // printf ("equal\n");
+      file_deny_write (f);
+  }
+    
   if (!f)
   {
     lock_release (&filesys_lock);
@@ -358,30 +382,53 @@ read (int fd, void *buffer, unsigned length)
 }
 
 int 
-write (int fd, const void* buffer, unsigned size)
+write (int fd, const void *buffer, unsigned size)
 {
+  // printf ("----write-----\n");
   if (!buffer)
     exit (-1);
+  for (int i = 0; i < size; i++) {
+    is_valid_ptr (buffer + i);
+  }
+  // printf ("fd: %d\n", fd);
+  // printf ("1\n");
   is_valid_ptr (buffer);
+  // printf ("2\n");
   is_in_valid_page (buffer);
+  // printf ("3\n");
+  
   if (fd == STDOUT_FILENO)
   {
+    // printf ("wsm\n");
+    // printf ("size: %d\n", size);
     putbuf (buffer, size);
+    // lock_release (&filesys_lock);
+    // printf ("nmd\n");
     return size;
   }
   if (fd == STDIN_FILENO)
   {
-    return size;
+    // lock_release (&filesys_lock);
+    return -1;
   }
   lock_acquire (&filesys_lock);
+  // printf ("-----1------\n");
   struct file *f = get_file (fd);
+  // printf ("-----2------\n");
   if (!f)
   {
     lock_release(&filesys_lock);
     return -1;
   }
+  if (is_deny_write(f))
+  {
+    lock_release (&filesys_lock);
+    // printf("----------------\n");
+    return 0;
+  }
   int length = file_write (f, buffer, size);
   lock_release (&filesys_lock);
+  // printf ("-----------%d---------------\n", length);
   return length;
 }
 

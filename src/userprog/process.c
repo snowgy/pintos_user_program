@@ -25,12 +25,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 void setup_argument (char **argv, int argc, void **esp);
 
-struct file_control_block
-{
-  struct file *process_file;
-  int fd;
-  struct list_elem file_elem;
-};
+
 
 /* add a new file to the process list */
 int 
@@ -106,6 +101,7 @@ process_execute (const char *file_name)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  printf ("out\n");
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -120,22 +116,24 @@ process_execute (const char *file_name)
 
   if (name == NULL)
     return TID_ERROR;
-  // printf ("2:exec\n");
   struct thread *cur = thread_current ();
-  // printf ("2: %d\n", cur->tid);
   cur->child_status = 0;
   
   /* Create a new thread to execute FILE_NAME. */
   enum intr_level old_level = intr_disable ();
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  printf ("before sema down\n");
   sema_down (&cur->exec_sema);
-  intr_set_level (old_level);
-
-  
+  printf ("after sema up\n");
+  intr_set_level (old_level); 
+  // palloc_free_page (name_tmp);
+  printf ("tid: %d\n", cur->tid);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  if (cur->child_status == -1)
-    tid = TID_ERROR;
+  if (cur->child_status == -1){
+      printf ("out 2\n");
+      tid = TID_ERROR;
+  }
   else 
   {
     struct child_process *child = (struct child_process *) malloc (sizeof (struct child_process));
@@ -159,14 +157,14 @@ process_execute (const char *file_name)
       // }
       // printf ("---the length of %d children is %d---\n", cur->tid, len);
     }
-    
   }
   
   // process_wait (tid);
   // struct thread *t = thread_find (tid);
   // if (!global_succcess)
   //   tid = -1;
-  // printf ("-------finish exec------\n");
+  printf ("-------finish exec %d------\n", tid);
+  
   return tid;
 }
 
@@ -176,7 +174,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  // printf ("-----start process-----\n");
+  printf ("-----start process-----\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -202,7 +200,7 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load (file_name, &if_.eip, &if_.esp);
-  // printf ("succcess: %d\n", success);
+  printf ("succcess: %d\n", success);
   // if (success)
   //   setup_argument (argv, argc, &if_.esp);
   
@@ -288,7 +286,7 @@ void setup_argument (char **argv, int argc, void **esp)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  // printf ("------wait------\n");
+  // printf ("------ %d wait ------\n", thread_current() -> tid);
   struct child_process *child = NULL;
   struct list_elem *e;
   // printf ("3:wait\n");
@@ -369,10 +367,12 @@ process_exit (void)
   // printf("---in pro child id: %d---\n", cur->tid);
   for (e = list_begin (&cur->children); e != list_tail (&cur->children); e = nxt)
   {
+    // lock_acquire (&cur->child_lock);
     child = list_entry (e, struct child_process, childelem);
     // free (child);
     nxt = list_next (e);
     list_remove (e);
+    // lock_release (&cur->child_lock);
   }
   //printf ("------finish exit-----\n");
 }
@@ -470,7 +470,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
-  // printf ("1:load\n");
+  // printf ("begin load\n");
   struct thread *t = thread_current ();
   // printf ("1: %d\n", t->tid);
   struct Elf32_Ehdr ehdr;
@@ -482,12 +482,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
-    goto done;
+  {
+    return success;
+  }
+    
   process_activate ();
 
   char *fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return false;
+  if (fn_copy == NULL){
+      printf ("false : 2\n");
+     return false;
+  }
+   
   strlcpy (fn_copy, file_name, PGSIZE);
   char *save_ptr;
   char *argv[ARGLEN];
@@ -500,6 +506,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   // printf("--- %s ---\n", file_name);
+  // printf ("acquire\n");
   lock_acquire (&filesys_lock);
 
   file = filesys_open (file_name);
@@ -511,36 +518,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-  // file_deny_write (file);
-  /* Read and verify executable header. */
-  // if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr)
-  // {
-  //   printf("---1---\n");
-  // }
-  // if (memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7))
-  // {
-  //   printf("---2---\n");
-  // }
-  // if (ehdr.e_type != 2)
-  // {
-  //   printf("---3---\n");
-  // }
-  // if (ehdr.e_machine != 3)
-  // {
-  //   printf("---4---\n");
-  // }
-  // if (ehdr.e_version != 1)
-  // {
-  //   printf("---5---\n");
-  // }
-  // if (ehdr.e_phentsize != sizeof (struct Elf32_Phdr))
-  // {
-  //   printf("---6---\n");
-  // }
-  // if (ehdr.e_phnum > 1024)
-  // {
-  //   printf("---7---\n");
-  // }
+
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
       || ehdr.e_type != 2
@@ -623,7 +601,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+  if (fn_copy != NULL)
+    palloc_free_page  (fn_copy);
   file_close (file);
+  // printf ("release\n");
   lock_release (&filesys_lock);
   // printf ("---load done---\n");
   return success;

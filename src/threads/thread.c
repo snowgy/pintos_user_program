@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
+#include "filesys/file.h"
 #include "userprog/process.h"
 #endif
 
@@ -290,7 +291,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  // printf ("--- thread exit ---\n");
+  // printf ("--- %d thread exit ---\n", thread_current()->tid);
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -307,6 +308,46 @@ thread_exit (void)
   // printf ("5:%d\n", cur->tid);
   list_remove (&cur->allelem);
   // printf ("---current id: %d---\n", thread_current ()->tid);
+  // close all the files
+  struct list_elem *e;
+
+  // printf ("%d\n", cur->file_num);
+  // if (cur->file_num != 0){
+  //      for (e = list_begin (&cur->file_list); e != list_end (&cur->file_list); e = list_next (e)) 
+  //       {
+  //         printf ("free\n");
+  //         fcb = list_entry (e, struct file_control_block, file_elem);
+  //         printf ("a\n");
+  //         //lock_acquire (&filesys_lock);
+  //         if (fcb != NULL){
+  //           printf ("b\n");
+  //           file_close (fcb->process_file);
+  //         }
+          
+  //         //printf ("release\n");
+  //         //lock_release (&filesys_lock);
+  //         // list_remove (e);
+  //         thread_current()->file_num--;
+  //         palloc_free_page (fcb);    
+  //     }
+  // }
+  while (cur->file_num != 0)
+  {
+    // printf ("file_num: %d\n", cur->file_num);
+    e = list_pop_front (&cur->file_list);
+    struct file_control_block *fcb = list_entry (e, struct file_control_block, file_elem);
+    // printf ("acquire\n");
+    lock_acquire (&filesys_lock);
+    file_close (fcb -> process_file);
+    // printf ("release\n");
+    lock_release (&filesys_lock);
+    list_remove (e);
+    cur->file_num--;
+    palloc_free_page (fcb);
+
+  }
+ 
+ 
 
   struct thread *p = thread_find (cur->parentId);
   int id = cur->tid;
@@ -331,7 +372,7 @@ thread_exit (void)
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
-  printf ("finish thread exit\n");
+  // printf ("finish thread exit\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and

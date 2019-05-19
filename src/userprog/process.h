@@ -3,7 +3,12 @@
 
 #include "threads/thread.h"
 #include "filesys/file.h"
-
+struct file_control_block
+{
+  struct file *process_file;
+  int fd;
+  struct list_elem file_elem;
+};
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);
 void process_exit (void);

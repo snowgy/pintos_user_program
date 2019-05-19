@@ -217,9 +217,10 @@ halt ()
 void 
 exit (int status)
 {
-  // printf("---in exit---\n");
+  // printf("---in exit %d---\n", thread_current()->tid);
   struct thread *cur = thread_current ();
-  printf ("%s: exit(%d)\n", cur->name, status);
+  // printf ("jjj\n");
+  // printf ("%s: exit(%d)\n", cur->name, status);
   struct thread *p = thread_find (cur->parentId);
   //printf("---%s %d\n", cur->tid, cur->exit_status);
   if (p != NULL)
@@ -249,21 +250,23 @@ exit (int status)
       }
     }
   }
-  
+  // printf ("finish exit \n");
+  printf ("%s: exit(%d)\n", cur->name, status);
   thread_exit ();
+  
 }
 
 pid_t 
 exec (const char *file)
 {
-  // printf("---in exec---\n");
+  printf("---in exec---\n");
   if (!file)
     exit (-1);
   is_in_valid_page (file);
   // printf ("---exe id: %d---\n", thread_current ()->tid);
   pid_t pid = -1;
   // lock_acquire (&filesys_lock);
-  // printf ("------ load -------\n");
+  printf ("------ load -------\n");
   pid = process_execute (file);
   // printf ("------- finish : %d -----\n", pid);
   // lock_release (&filesys_lock);
@@ -300,6 +303,8 @@ create (const char *file, unsigned initial_size)
 bool
 is_in_valid_page (const void * ptr)
 {
+  if (!is_user_vaddr (ptr))
+    exit (-1);
   void *ptr_check = pagedir_get_page (thread_current ()->pagedir, ptr);
   if (!ptr_check)
     exit (-1);

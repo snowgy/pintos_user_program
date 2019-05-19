@@ -13,7 +13,6 @@ test_main (void)
 {
   char *p = get_bad_boundary () - 1;
   *p = 'a';
-  msg("boundary address: 0x%x", p);
   exec(p);
 
   /* Note: if this test fails to pass even with the official solutions,

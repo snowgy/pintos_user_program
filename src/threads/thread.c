@@ -291,64 +291,36 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  // printf ("--- %d thread exit ---\n", thread_current()->tid);
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
   process_exit ();
 #endif
-// printf ("after\n");
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  // struct thread *t = thread_current ();
-  // printf ("5:thread exit\n");
   struct thread *cur = thread_current ();
-  // printf ("5:%d\n", cur->tid);
+
   list_remove (&cur->allelem);
-  // printf ("---current id: %d---\n", thread_current ()->tid);
-  // close all the files
   struct list_elem *e;
 
-  // printf ("%d\n", cur->file_num);
-  // if (cur->file_num != 0){
-  //      for (e = list_begin (&cur->file_list); e != list_end (&cur->file_list); e = list_next (e)) 
-  //       {
-  //         printf ("free\n");
-  //         fcb = list_entry (e, struct file_control_block, file_elem);
-  //         printf ("a\n");
-  //         //lock_acquire (&filesys_lock);
-  //         if (fcb != NULL){
-  //           printf ("b\n");
-  //           file_close (fcb->process_file);
-  //         }
-          
-  //         //printf ("release\n");
-  //         //lock_release (&filesys_lock);
-  //         // list_remove (e);
-  //         thread_current()->file_num--;
-  //         palloc_free_page (fcb);    
-  //     }
-  // }
+  /* CLose all the files. */
   while (cur->file_num != 0)
   {
-    // printf ("file_num: %d\n", cur->file_num);
     e = list_pop_front (&cur->file_list);
     struct file_control_block *fcb = list_entry (e, struct file_control_block, file_elem);
-    // printf ("acquire\n");
+    
     lock_acquire (&filesys_lock);
     file_close (fcb -> process_file);
-    // printf ("release\n");
     lock_release (&filesys_lock);
+    
     list_remove (e);
     cur->file_num--;
     palloc_free_page (fcb);
-
   }
- 
- 
 
+  /* Wake parents up if needed. */
   struct thread *p = thread_find (cur->parentId);
   int id = cur->tid;
 
@@ -368,11 +340,9 @@ thread_exit (void)
       sema_up (&child->sema);
   }
   
-  // printf("---After exit, %d %d\n", t->tid, t->exit_status);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
-  // printf ("finish thread exit\n");
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and

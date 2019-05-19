@@ -48,7 +48,7 @@ spawn_child (int c, enum child_termination_mode mode)
 static void
 consume_some_resources (void)
 {
-  printf ("consume\n");
+  // printf ("consume\n");
   int fd, fdmax = 126;
 
   /* Open as many files as we can, up to fdmax.
@@ -125,7 +125,7 @@ main (int argc, char *argv[])
 
   for (i = 0; i < howmany; i++)
     {
-      printf ("before: n %d\n", n);
+      // printf ("before: n %d\n", n);
       pid_t child_pid;
   
       /* Spawn a child that will be abnormally terminated.
@@ -147,8 +147,8 @@ main (int argc, char *argv[])
 
       /* Now spawn the child that will recurse. */
       child_pid = spawn_child (n + 1, RECURSE);
-      printf ("n: %d, child id: %d\n", n, child_pid);
-      printf ("expected depth: %d\n", expected_depth);
+      // printf ("n: %d, child id: %d\n", n, child_pid);
+      // printf ("expected depth: %d\n", expected_depth);
       /* If maximum depth is reached, return result. */
       if (child_pid == -1)
         return n;
@@ -169,7 +169,7 @@ main (int argc, char *argv[])
     }
 
   consume_some_resources ();
-  printf ("n : %d\n", n);
+  // printf ("n : %d\n", n);
   if (n == 0)
     {
       if (expected_depth < EXPECTED_DEPTH_TO_PASS)

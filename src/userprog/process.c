@@ -101,7 +101,7 @@ process_execute (const char *file_name)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  printf ("out\n");
+  // printf ("out\n");
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -112,29 +112,38 @@ process_execute (const char *file_name)
   strlcpy (name_tmp, file_name, PGSIZE);
 
   char *save_ptr;
-  char *name = strtok_r(name_tmp, " ", &save_ptr);
+  name_tmp = strtok_r(name_tmp, " ", &save_ptr);
 
-  if (name == NULL)
+  if (name_tmp == NULL)
+  {
+    palloc_free_page (name_tmp);
     return TID_ERROR;
+  }
   struct thread *cur = thread_current ();
   cur->child_status = 0;
   
   /* Create a new thread to execute FILE_NAME. */
   enum intr_level old_level = intr_disable ();
-  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
-  printf ("before sema down\n");
+  tid = thread_create (name_tmp, PRI_DEFAULT, start_process, fn_copy);
+  // printf ("before sema down\n");
+  palloc_free_page (name_tmp);
   sema_down (&cur->exec_sema);
-  printf ("after sema up\n");
+  // printf ("after sema up\n");
   intr_set_level (old_level); 
-  // palloc_free_page (name_tmp);
-  printf ("tid: %d\n", cur->tid);
+  // printf ("---name_tmp free fail begin\n");
+  
+  // printf ("---name_tmp free fail end\n");
+  // printf ("tid: %d\n", cur->tid);
   if (tid == TID_ERROR)
+  {
     palloc_free_page (fn_copy); 
+    // palloc_free_page (name_tmp);
+  }
   if (cur->child_status == -1){
-      printf ("out 2\n");
+      // printf ("out 2\n");
       tid = TID_ERROR;
   }
-  else 
+  if (tid != TID_ERROR)
   {
     struct child_process *child = (struct child_process *) malloc (sizeof (struct child_process));
     if (child == NULL) {
@@ -163,7 +172,7 @@ process_execute (const char *file_name)
   // struct thread *t = thread_find (tid);
   // if (!global_succcess)
   //   tid = -1;
-  printf ("-------finish exec %d------\n", tid);
+  // printf ("-------finish exec %d------\n", tid);
   
   return tid;
 }
@@ -174,7 +183,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  printf ("-----start process-----\n");
+  // printf ("-----start process-----\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -200,7 +209,7 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load (file_name, &if_.eip, &if_.esp);
-  printf ("succcess: %d\n", success);
+  // printf ("succcess: %d\n", success);
   // if (success)
   //   setup_argument (argv, argc, &if_.esp);
   
@@ -329,6 +338,7 @@ process_wait (tid_t child_tid UNUSED)
   if (child != NULL)
   {
     status = child->exit_status;
+    // printf ("in wait, child id = %d, status = %d\n", child->tid, child->exit_status);
     child->exited = true;
     list_remove (e);
   }
@@ -490,7 +500,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   char *fn_copy = palloc_get_page (0);
   if (fn_copy == NULL){
-      printf ("false : 2\n");
+      // printf ("false : 2\n");
      return false;
   }
    
@@ -695,7 +705,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (kpage == NULL)
         return false;
 
-      /* Load this page. */
+      /* Load tgit checkout buggy
+his page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
           palloc_free_page (kpage);

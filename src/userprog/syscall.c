@@ -179,6 +179,7 @@ read_args (int n, int *argv, struct intr_frame *f)
     // if (*(int*)f->esp == SYS_WAIT)
       //printf ("argv[%d]---%s---\n", i, argv[i]);
   }
+  is_valid_ptr ((void *)f->esp + 1 + n);
   // printf ("%d\n", n);
 }
 
@@ -244,6 +245,7 @@ exit (int status)
         lock_acquire (&cur->child_lock);
         child->exited = true;
         child->exit_status = status;
+        // printf ("in exit, child id = %d, status = %d\n", child->tid, child->exit_status);
         lock_release (&cur->child_lock);
         // printf ("---%d: %d %d---\n", child->tid, child->exit_status, status);
         break;
@@ -259,14 +261,14 @@ exit (int status)
 pid_t 
 exec (const char *file)
 {
-  printf("---in exec---\n");
+  // printf("---in exec---\n");
   if (!file)
     exit (-1);
   is_in_valid_page (file);
   // printf ("---exe id: %d---\n", thread_current ()->tid);
   pid_t pid = -1;
   // lock_acquire (&filesys_lock);
-  printf ("------ load -------\n");
+  // printf ("------ load -------\n");
   pid = process_execute (file);
   // printf ("------- finish : %d -----\n", pid);
   // lock_release (&filesys_lock);

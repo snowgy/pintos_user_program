@@ -138,6 +138,6 @@ No. We use the original linked list algorithm.
 
 #### Platform: `ubuntu 18.04 & ubuntu 16.04`
 
-** We pass all 80 tests **
+**We pass all 80 tests**
 
 <img src="https://ws1.sinaimg.cn/mw690/74c2bf2dgy1g37mznu0knj209j0nomx6.jpg" width="300px"/>

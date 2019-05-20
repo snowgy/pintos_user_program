@@ -2,8 +2,8 @@
 
 ### Group member
 
-* 龚玥
 * 贺启旸
+* 龚玥
 
 ### Task 1: Argument passing
 
@@ -23,7 +23,7 @@ No synchronization operation needed.
 
 ##### Rationale
 
-We use smart method to implement word-align (bit operation => ptr&0xfffffffc).
+We use a smart method to implement word-align (bit operation => ptr&0xfffffffc).
 
 ### Task 2: Process Control Syscalls
 
@@ -31,7 +31,7 @@ We use smart method to implement word-align (bit operation => ptr&0xfffffffc).
 
 Add a children list in `struct thread`
 
-Add a struct to record the information of child process
+Add a struct to record the information of a child process
 
 ```c
 struct child_process
@@ -61,13 +61,13 @@ f->esp   -----------------------------
 	 -----------------------------
 ```
 
-We will first get the `SYS_CODE` to decide which syscall is called. The we will read the arguments and do validation. The major challange here is to valify whether the argument pointer is valid. We should not only check whether the address of the pointer is a valid user address, but also check whether it is mapped in the kenerl address.
+We will first get the `SYS_CODE` to decide which syscall is used. Then we will read the arguments and do validation. The major challange here is to valify whether the argument pointer is valid. We should not only check whether the address of the pointer is a valid user address, but also check whether it is mapped in the kenerl address.
 
-The most difficult part is to implement `exec` and `wait`. When `exec`, the parent process must wait until the child process finished load operation. `wait` is to wait for a child process to finish, then the parent process can proceed executing.
+The most difficult part is to implement `exec` and `wait`. When `exec`, the parent process must wait until the child process finished `load` operation. `wait` is to wait for a child process to finish, then the parent process can proceed executing.
 
 ##### Synchronization
 
-When `exec`, the parent process must wait until the child process finished load operation. `wait` is to wait for a child process to finish, then the parent process can proceed executing.
+When `exec`, the parent process must wait until the child process finished load operation. `wait` is to wait for a child process to finish, then the parent process can proceed executing.We use semaphore to implement the synchronization.
 
 ### Task 3: File Operation Syscalls
 
@@ -100,7 +100,7 @@ Qiyang he is mainly responsible for task1 and task2
 
 Yue Gong is mainly responsible for task3.
 
-We corporate well, finished each function step by step. We could furthur refactor our code to make it more readable. Currently, the arguments check part is too complex. Some part of the code can be more elegant.
+We corporate well, finished each function step by step. We could furthur refactor our code to make it more readable. 
 
 #### Does your code exhibit any major memory safety problems (especially regarding C strings), memory leaks, poor error handling, or race conditions? 
 
@@ -134,3 +134,7 @@ No.
 
 No. We use the original linked list algorithm.
 
+### Result
+#### Platform: `ubuntu 18.04 & ubuntu 16.04`
+** We pass all 80 tests **
+<img src="https://ws1.sinaimg.cn/mw690/74c2bf2dgy1g37mznu0knj209j0nomx6.jpg" width="500px"/>

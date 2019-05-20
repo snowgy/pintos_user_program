@@ -51,14 +51,14 @@ The syscall stack is as below
 
 ```
 f->esp   -----------------------------
-				|           SYS_CODE          |
- 				 -----------------------------
-				|  arg[0] ptr -OR- int_value  |
- 				 -----------------------------
-				|  arg[1] ptr -OR- int_value  |
- 				 -----------------------------
-				|  arg[2] ptr -OR- int_value  |
-				 -----------------------------
+	|           SYS_CODE          |
+ 	 -----------------------------
+	|  arg[0] ptr -OR- int_value  |
+ 	 -----------------------------
+	|  arg[1] ptr -OR- int_value  |
+	 -----------------------------
+	|  arg[2] ptr -OR- int_value  |
+	 -----------------------------
 ```
 
 We will first get the `SYS_CODE` to decide which syscall is called. The we will read the arguments and do validation. The major challange here is to valify whether the argument pointer is valid. We should not only check whether the address of the pointer is a valid user address, but also check whether it is mapped in the kenerl address.

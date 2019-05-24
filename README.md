@@ -5,7 +5,7 @@
 ### Group member
 
 [![author1](https://img.shields.io/badge/Author-Qiyang%20He-orange.svg)](https://github.com/1756500824)
-[![author2](https://img.shields.io/badge/Author-yue%20gong-blue.svg)](https://github.com/snowgy)
+[![author2](https://img.shields.io/badge/Author-Yue%20Gong-blue.svg)](https://github.com/snowgy)
 
 ### Task 1: Argument passing
 

@@ -1,9 +1,11 @@
 # Pintos User Program
 
+![progress](http://progressed.io/bar/100?title=done) ![ubuntu-version](https://img.shields.io/badge/ubuntu-18.04-yellow.svg) ![ubuntu-version](https://img.shields.io/badge/ubuntu-16.04-green.svg) 
+
 ### Group member
 
-* 贺启旸
-* 龚玥
+![https://github.com/1756500824](https://img.shields.io/badge/Author-Qiyang%20He-orange.svg)
+![https://github.com/snowgy](https://img.shields.io/badge/Author-yue%20gong-blue.svg)
 
 ### Task 1: Argument passing
 

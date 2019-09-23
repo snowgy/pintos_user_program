@@ -1,6 +1,6 @@
 # Pintos User Program
 
-![progress](http://progressed.io/bar/100?title=done) ![ubuntu-version](https://img.shields.io/badge/ubuntu-18.04-yellow.svg) ![ubuntu-version](https://img.shields.io/badge/ubuntu-16.04-green.svg) 
+![ubuntu-version](https://img.shields.io/badge/ubuntu-18.04-yellow.svg) ![ubuntu-version](https://img.shields.io/badge/ubuntu-16.04-green.svg) 
 
 ### Group member
 
